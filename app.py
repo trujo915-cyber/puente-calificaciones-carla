@@ -7,7 +7,7 @@ import json
 
 # 1. Configuración de la interfaz visual de Carla
 st.set_page_config(page_title="Asistente de Laboratorio IQ", page_icon="🧪")
-st.title("🧪 Puente de Calificaciones para Carla")
+st.title("🧪Calificador IA")
 st.write("Conéctate a OneDrive, sube los exámenes y califica con IA de forma precisa.")
 
 # Cargar las llaves secretas guardadas de forma segura en la nube
