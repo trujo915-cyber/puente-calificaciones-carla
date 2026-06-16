@@ -1,5 +1,6 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import openpyxl
 import io
 import json
@@ -16,8 +17,12 @@ except Exception:
     st.error("Falta configurar la llave secreta 'CONEXION_IA' en Streamlit Cloud.")
     st.stop()
 
-# Configurar la IA de Google
-genai.configure(api_key=GENAI_KEY)
+# Configurar el cliente oficial moderno de Google GenAI
+try:
+    client = genai.Client(api_key=GENAI_KEY)
+except Exception as e:
+    st.error(f"Error inicializando el cliente de Google GenAI: {e}")
+    st.stop()
 
 # Estructura de pestañas para organizar la interfaz de Carla
 tab1, tab2 = st.tabs(["📋 Proceso de Calificación", "⚙️ Guía de Uso"])
@@ -100,7 +105,7 @@ with tab1:
 
     st.markdown("---")
 
-    # 5. EJECUCIÓN DEL MOTOR DE INTELIGENCIA ARTIFICIAL MULTIMODAL
+    # 5. EJECUCIÓN DEL MOTOR DE INTELIGENCIA ARTIFICIAL MULTIMODAL (MIGRADO A GOOGLE-GENAI)
     if archivos_subidos and excel_file and practica_seleccionada and (modelo_respuestas or archivos_criterio):
         if st.button("🚀 Iniciar Calificación Inteligente"):
             progreso = st.progress(0)
@@ -111,7 +116,10 @@ with tab1:
             if archivos_criterio:
                 for arch_ref in archivos_criterio:
                     ref_bytes = arch_ref.read()
-                    payload_criterios.append({"mime_type": arch_ref.type if arch_ref.type else "application/pdf", "data": ref_bytes})
+                    mime = arch_ref.type if arch_ref.type else "application/pdf"
+                    payload_criterios.append(
+                        types.Part.from_bytes(data=ref_bytes, mime_type=mime)
+                    )
                     arch_ref.seek(0)
             
             # Cargar el libro de trabajo para edición
@@ -157,7 +165,6 @@ with tab1:
                 status_text.text(f"Analizando trabajo {index+1} de {total_archivos}: {archivo_alumno.name}")
                 
                 alumno_bytes = archivo_alumno.read()
-                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 # Diseño de prompt multimodal avanzado
                 prompt = f"""
@@ -180,14 +187,21 @@ with tab1:
                 }}
                 """
                 
-                # Construcción dinámica del paquete de datos para Gemini
+                # Construcción dinámica del paquete de datos para la nueva API google-genai
                 paquete_ia = []
                 paquete_ia.extend(payload_criterios) # Primero inyectamos las guías máster de Carla
-                paquete_ia.append({"mime_type": archivo_alumno.type, "data": alumno_bytes}) # Al final el archivo del alumno
+                paquete_ia.append(
+                    types.Part.from_bytes(data=alumno_bytes, mime_type=archivo_alumno.type)
+                ) # Al final el archivo del alumno
                 paquete_ia.append(prompt)
                 
                 try:
-                    response = model.generate_content(paquete_ia)
+                    # Usamos el nuevo modelo gemini-2.5-flash mediante la estructura de cliente moderna
+                    response = client.models.generate_content(
+                        model='gemini-2.5-flash',
+                        contents=paquete_ia
+                    )
+                    
                     texto_limpio = response.text.replace("```json", "").replace("```", "").strip()
                     datos = json.loads(texto_limpio)
                     
